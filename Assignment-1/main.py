@@ -51,12 +51,9 @@ def main():
     program = None
     try:
         program = A1Program()
-        program.create_tables()
-        # program.insert_data(table_name="Person")
-        # _ = program.fetch_data(table_name="Person")
-        # program.drop_table(table_name="Person")
-        # Check that the table is dropped
         program.show_tables()
+        program.fetch_data("trip")
+        # program.fetch_data("gps_point")
     except Exception as e:
         print("ERROR: Failed to use database:", e)
     finally:
