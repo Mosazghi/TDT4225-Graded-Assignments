@@ -1,4 +1,6 @@
 import mysql.connector as mysql
+from trip_tables import DB_NAME
+
 
 
 class DbConnector:
@@ -16,9 +18,8 @@ class DbConnector:
 
     def __init__(self,
                  HOST="tdt4225-10.idi.ntnu.no",
-                 # HOST="129.241.104.23",
                  # HOST="127.0.0.1",
-                 DATABASE="test_db",
+                 DATABASE=DB_NAME,
                  USER="mosa",
                  PASSWORD="mosa"):
         # Connect to the database
