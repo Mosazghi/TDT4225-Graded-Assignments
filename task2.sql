@@ -21,46 +21,42 @@ CREATE TABLE gps_point (
 
 
 #1
-SELECT count(taxi_id), count(trip.id), count(gps_point.id)
-FROM trip, gps_point;
+SELECT
+    (SELECT COUNT(DISTINCT taxi_id) FROM trip) AS tot_taxis,
+    (SELECT COUNT(*) FROM trip) AS tot_trip,
+    (SELECT COUNT(*) FROM gps_point) AS tot_gps_points;
 
 #2
-SELECT avg(trip_count)
+SELECT avg(trip_count) AS avg_trip_count
 FROM (
     SELECT count(id) AS trip_count
     FROM trip
     GROUP BY taxi_id
-)
+) AS trip_counts;
 
 #3
 SELECT taxi_id, count(id) AS trip_count
 FROM trip
 GROUP BY taxi_id
 ORDER BY trip_count DESC
-LIMIT 20
+LIMIT 20;
 
 #4
-SELECT taxi_id, count_A, count_B, count_C
+SELECT DISTINCT taxi_id,
+CASE WHEN count_A = GREATEST(count_A, count_B, count_C) THEN 'A'
+WHEN count_B = GREATEST(count_A, count_B, count_C) THEN 'B'
+WHEN count_C = GREATEST(count_A, count_B, count_C) THEN 'C'
+END AS most_used_call_type
 FROM (
-    (SELECT taxi_id, count(id) AS count_A
-    FROM trip
-    WHERE call_type = 'A'
-    GROUP BY taxi_id) AS a
-JOIN
-    (SELECT taxi_id, count(id) AS count_B
-    FROM trip
-    WHERE call_type = 'B'
-    GROUP BY taxi_id) AS b
-ON a.taxi_id = b.taxi_id
-JOIN
-    (SELECT taxi_id, count(id) AS count_C
-    FROM trip
-    WHERE call_type = 'C'
-    GROUP BY taxi_id) AS c
-ON a.taxi_id = c.taxi_id
-)
+SELECT
+    taxi_id,
+    SUM(CASE WHEN call_type = 'A' THEN 1 ELSE 0 END) AS count_A,
+    SUM(CASE WHEN call_type = 'B' THEN 1 ELSE 0 END) AS count_B,
+    SUM(CASE WHEN call_type = 'C' THEN 1 ELSE 0 END) AS count_C
+FROM trip
+GROUP BY taxi_id) AS counts;
 
-#4b)
+#4b) #This is not complete yet i think, we have to use python
 SELECT avg(nr_gps_points)*15
 FROM(
     SELECT count(*) AS nr_gps_points
