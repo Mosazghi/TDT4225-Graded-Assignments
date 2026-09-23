@@ -51,9 +51,10 @@ def main():
     program = None
     try:
         program = A1Program()
+        program.create_tables()
         program.show_tables()
         program.fetch_data("trip")
-        # program.fetch_data("gps_point")
+        program.fetch_data("gps_point")
     except Exception as e:
         print("ERROR: Failed to use database:", e)
     finally:

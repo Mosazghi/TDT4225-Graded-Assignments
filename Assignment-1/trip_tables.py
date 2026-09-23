@@ -15,12 +15,12 @@ TABLES['trip'] = (
 
 TABLES['gps_point'] = (
     "CREATE TABLE IF NOT EXISTS `gps_point` ("
-    "  `id` BIGINT AUTO_INCREMENT PRIMARY KEY,"
     "  `trip_id` BIGINT NOT NULL,"
-    "  `point_index` INT NOT NULL,"
-    "  `longitude` DOUBLE NOT NULL,"
-    "  `latitude` DOUBLE NOT NULL,"
+    "  `point_index` SMALLINT UNSIGNED NOT NULL,"
+    "  `longitude` FLOAT NOT NULL,"
+    "  `latitude` FLOAT NOT NULL,"
+    "  PRIMARY KEY (`trip_id`, `point_index`),"
     "  FOREIGN KEY (`trip_id`)"
-    "    REFERENCES `trip`(`id`)"
-    "    ON DELETE CASCADE"
+    "  REFERENCES `trip`(`id`)"
+    "  ON DELETE CASCADE"
     ")")
