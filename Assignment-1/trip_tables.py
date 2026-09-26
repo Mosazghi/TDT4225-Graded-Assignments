@@ -1,7 +1,7 @@
-DB_NAME = 'A1_db'
+DB_NAME = "A1_db"
 
 TABLES = {}
-TABLES['trip'] = (
+TABLES["trip"] = (
     "CREATE TABLE IF NOT EXISTS `trip` ("
     "  `id` BIGINT PRIMARY KEY,"
     "  `call_type` CHAR(1),"
@@ -11,9 +11,10 @@ TABLES['trip'] = (
     "  `timestamp` DATETIME NOT NULL,"
     "  `day_type` CHAR(1),"
     "  `missing_data` BOOLEAN NOT NULL"
-    ")")
+    ")"
+)
 
-TABLES['gps_point'] = (
+TABLES["gps_point"] = (
     "CREATE TABLE IF NOT EXISTS `gps_point` ("
     "  `trip_id` BIGINT NOT NULL,"
     "  `point_index` SMALLINT UNSIGNED NOT NULL,"
@@ -23,4 +24,5 @@ TABLES['gps_point'] = (
     "  FOREIGN KEY (`trip_id`)"
     "  REFERENCES `trip`(`id`)"
     "  ON DELETE CASCADE"
-    ")")
+    ")"
+)

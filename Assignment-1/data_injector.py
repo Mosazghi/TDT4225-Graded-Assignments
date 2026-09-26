@@ -43,19 +43,29 @@ class TripFromCSV:
     missing_data: bool
     polyline: list[list[float]]
 
-def parse_raw_trip(row: dict) -> TripFromCSV:
-    polyline = json.loads(row["POLYLINE"])
-    return TripFromCSV(
-        trip_id=int(row["TRIP_ID"]),
-        call_type=row["CALL_TYPE"],
-        origin_call=int(row["ORIGIN_CALL"]) if row["ORIGIN_CALL"] else None,
-        origin_stand=int(row["ORIGIN_STAND"]) if row["ORIGIN_STAND"] else None,
-        taxi_id=int(row["TAXI_ID"]),
-        timestamp=int(row["TIMESTAMP"]),
-        day_type=row["DAY_TYPE"],
-        missing_data=row["MISSING_DATA"].strip().lower() == "true",
-        polyline=polyline
-    )
+def parse_raw_trip(row: dict) -> TripFromCSV | None:
+    try:
+        raw_polyline = row["POLYLINE"]
+        if not raw_polyline:
+            raw_polyline = "[]"
+        polyline = json.loads(raw_polyline)
+
+        return TripFromCSV(
+            trip_id=int(row["TRIP_ID"]),
+            call_type=row["CALL_TYPE"],
+            origin_call=int(row["ORIGIN_CALL"]) if row["ORIGIN_CALL"] else None,
+            origin_stand=int(row["ORIGIN_STAND"]) if row["ORIGIN_STAND"] else None,
+            taxi_id=int(row["TAXI_ID"]),
+            timestamp=int(row["TIMESTAMP"]),
+            day_type=row["DAY_TYPE"],
+            missing_data=row["MISSING_DATA"].strip().lower() == "true",
+            polyline=polyline
+        )
+    except Exception as e:
+        print(f"raw row: {row}")
+        print(f"Error parsing trip: {e}")
+        return None
+
 def parse_gps_point(raw_trip: TripFromCSV) -> list[GPSPoint]:
     if not raw_trip.polyline:
         return []
@@ -122,6 +132,8 @@ def inject_into_db(cursor, conn, batch_size: int = 25_000) -> None:
             print(f"Processing {row['TRIP_ID']} ({i})")
 
             trip = parse_raw_trip(row)
+            if not trip:
+                continue
             gps_points = parse_gps_point(trip)
             batch.append((trip, gps_points))
 
