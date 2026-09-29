@@ -1,3 +1,11 @@
+import json
+
+from datetime import datetime
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
 from DbConnector import DbConnector
 from tabulate import tabulate
 from trip_tables import TABLES
@@ -6,7 +14,19 @@ from haversine import haversine, Unit
 
 class A1Program:
     def __init__(self):
-        self.connection = DbConnector()
+
+        load_dotenv(Path(__file__).resolve().with_name(".env"))
+        required = ("DB_HOST", "DB_DATABASE", "DB_USER", "DB_PASSWORD")
+        missing = [name for name in required if name not in os.environ]
+        if missing:
+            raise ValueError(f"Missing database settings: {', '.join(missing)}")
+
+        HOST = os.environ["DB_HOST"]
+        DATABASE = os.environ["DB_DATABASE"]
+        USER = os.environ["DB_USER"]
+        PASSWORD = os.environ["DB_PASSWORD"]
+
+        self.connection = DbConnector(HOST, DATABASE, USER, PASSWORD)
         self.db_connection = self.connection.db_connection
         self.cursor = self.connection.cursor
 
@@ -148,15 +168,51 @@ class A1Program:
                 f"{average_distance:.2f} km "
                 f"({trip_count[call_type]} trips)"
             )
+    def task_10(self):
+        q = """
+                SELECT
+                    taxi_id,
+                    JSON_ARRAYAGG(DATE_FORMAT(timestamp, '%Y-%m-%d %H:%i:%s')) AS full_datetime_array
+                FROM trip
+                GROUP BY taxi_id
+                ORDER BY taxi_id;
+        """
+        cursor = self.connection.db_connection.cursor(buffered=False)
+        cursor.execute(q)
+        taxi_avg_idle_time = {}
+        idle_time = 0
+        last_taxi_id = None
+        last_timestamps_len = 0
+        fmt = "%Y-%m-%d %H:%M:%S"
+        for taxi_id, timestamps in cursor:
+            time_stamps = json.loads(timestamps)
+            if taxi_id != last_taxi_id:
+                if last_taxi_id is not None:
+                    taxi_avg_idle_time[last_taxi_id] = idle_time / last_timestamps_len if last_timestamps_len > 0 else None
+                idle_time = 0
+                last_timestamps_len = len(time_stamps)
+                last_taxi_id = taxi_id
 
+            # sort timestamps
+            time_stamps.sort()
 
+            for i in range(0, len(time_stamps) - 1):
+                dt1 = datetime.strptime(time_stamps[i], fmt)
+                dt2 = datetime.strptime(time_stamps[i + 1], fmt)
+                assert dt2 > dt1, f"dt2={dt2} is not less than dt1={dt1}"
+                idle_time += (dt2 - dt1).total_seconds()
+
+        for taxi_id, idle_time in taxi_avg_idle_time.items():
+            print(f"Taxi ID: {taxi_id}, Avg Idle Time (s): {idle_time:.2f} ({idle_time / 60:.2f} min)")
+
+        cursor.close()
 
 def main():
     program = None
     try:
         program = A1Program()
-        program.task_4b_avg_duration()
-        # program.show_tables()
+        # program.task_10()
+        program.show_tables()
         # program.fetch_data("gps_point", 10)
     except Exception as e:
         print("ERROR: Failed to use database:", e)
