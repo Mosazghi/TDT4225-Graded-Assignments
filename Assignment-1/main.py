@@ -168,45 +168,6 @@ class A1Program:
                 f"{average_distance:.2f} km "
                 f"({trip_count[call_type]} trips)"
             )
-    def task_10(self):
-        q = """
-                SELECT
-                    taxi_id,
-                    JSON_ARRAYAGG(DATE_FORMAT(timestamp, '%Y-%m-%d %H:%i:%s')) AS full_datetime_array
-                FROM trip
-                GROUP BY taxi_id
-                ORDER BY taxi_id;
-        """
-        cursor = self.connection.db_connection.cursor(buffered=False)
-        cursor.execute(q)
-        taxi_avg_idle_time = {}
-        idle_time = 0
-        last_taxi_id = None
-        last_timestamps_len = 0
-        fmt = "%Y-%m-%d %H:%M:%S"
-        for taxi_id, timestamps in cursor:
-            time_stamps = json.loads(timestamps)
-            if taxi_id != last_taxi_id:
-                if last_taxi_id is not None:
-                    taxi_avg_idle_time[last_taxi_id] = idle_time / last_timestamps_len if last_timestamps_len > 0 else None
-                idle_time = 0
-                last_timestamps_len = len(time_stamps)
-                last_taxi_id = taxi_id
-
-            # sort timestamps
-            time_stamps.sort()
-
-            for i in range(0, len(time_stamps) - 1):
-                dt1 = datetime.strptime(time_stamps[i], fmt)
-                dt2 = datetime.strptime(time_stamps[i + 1], fmt)
-                assert dt2 > dt1, f"dt2={dt2} is not less than dt1={dt1}"
-                idle_time += (dt2 - dt1).total_seconds()
-
-        for taxi_id, idle_time in taxi_avg_idle_time.items():
-            print(f"Taxi ID: {taxi_id}, Avg Idle Time (s): {idle_time:.2f} ({idle_time / 60:.2f} min)")
-
-        cursor.close()
-
 def main():
     program = None
     try:
