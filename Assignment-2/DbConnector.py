@@ -1,4 +1,4 @@
-from pymongo import MongoClient, version
+from pymongo import MongoClient
 
 
 class DbConnector:
@@ -13,17 +13,29 @@ class DbConnector:
     """
 
     def __init__(self,
-                 DATABASE='DATABASE_NAME',
-                 HOST="tdt4225-xx.idi.ntnu.no",
-                 USER="TEST_USER",
-                 PASSWORD="test123"):
-        uri = "mongodb://%s:%s@%s/%s" % (USER, PASSWORD, HOST, DATABASE)
+                 DATABASE='test',
+                 HOST="127.0.0.1",
+                 USER="mosa",
+                 PASSWORD="mosa",
+                 AUTH_SOURCE="admin"):
+        # Authenticate against the database where the MongoDB user was created.
+        auth_source = AUTH_SOURCE or DATABASE
         # Connect to the databases
+        self.client = MongoClient(
+            host=HOST,
+            username=USER,
+            password=PASSWORD,
+            authSource=auth_source,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=5000,
+        )
         try:
-            self.client = MongoClient(uri)
+            # MongoClient connects lazily; selecting a database is not a check.
+            self.client.admin.command("ping")
             self.db = self.client[DATABASE]
-        except Exception as e:
-            print("ERROR: Failed to connect to db:", e)
+        except Exception:
+            self.client.close()
+            raise
 
         # get database information
         print("You are connected to the database:", self.db.name)
