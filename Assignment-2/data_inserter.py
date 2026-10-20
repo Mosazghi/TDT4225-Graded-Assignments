@@ -34,6 +34,16 @@ def load_data():
     return metadata, credits
 
 
+def load_links(valid_movie_ids):
+    links = pd.read_csv("data/links.csv")
+    links = links.dropna(subset=["tmdbId"])
+    links["tmdbId"] = links["tmdbId"].astype(int)
+    links = links[links["tmdbId"].isin(valid_movie_ids)]
+    # a TMDB id should map to a single MovieLens id
+    links = links.drop_duplicates(subset="tmdbId")
+    return links
+
+
 LOOKUPS = [
     ("Genres",    "metadata", "genres",               "id",         ["name"]),
     ("Companies", "metadata", "production_companies", "id",         ["name"]),
@@ -56,7 +66,9 @@ def insert_lookup(db, name, column_data, id_key, fields):
     print(f"Inserted {len(docs)} documents into {name}")
 
 
-def insert_movies(db, metadata):
+def insert_movies(db, metadata, links):
+    movielens_by_tmdb = dict(zip(links["tmdbId"], links["movieId"]))
+
     columns = ["homepage", "original_language", "original_title", "overview",
                "popularity", "release_date", "status", "tagline", "title",
                "vote_average", "vote_count"]
@@ -66,6 +78,9 @@ def insert_movies(db, metadata):
         doc = {"_id": row["id"]}
         for column in columns:
             doc[column] = none_if_nan(row[column])
+        doc["imdb_id"] = none_if_nan(row["imdb_id"])
+        movielens_id = movielens_by_tmdb.get(row["id"])
+        doc["movielens_id"] = int(movielens_id) if movielens_id is not None else None
         doc["genre_ids"] = ids(row["genres"], "id")
         doc["language_codes"] = ids(row["spoken_languages"], "iso_639_1")
         docs.append(doc)
@@ -73,6 +88,32 @@ def insert_movies(db, metadata):
     db["Movie"].drop()
     db["Movie"].insert_many(docs)
     print(f"Inserted {len(docs)} documents into Movie")
+
+
+def insert_ratings(db, links, path="data/ratings.csv", chunk_size=100_000):
+    mapping = links[["movieId", "tmdbId"]]
+    db["Rating"].drop()
+
+    total = 0
+    for chunk in pd.read_csv(path, chunksize=chunk_size):
+        chunk = chunk.merge(mapping, on="movieId", how="inner")  # drops unmapped movies
+        docs = [
+            {
+                "user_id": int(r.userId),
+                "movie_id": int(r.tmdbId),       # references Movie._id
+                "movielens_id": int(r.movieId),
+                "rating": float(r.rating),
+                "timestamp": int(r.timestamp),   # unix seconds
+            }
+            for r in chunk.itertuples(index=False)
+        ]
+        if docs:
+            db["Rating"].insert_many(docs, ordered=False)
+            total += len(docs)
+
+    db["Rating"].create_index("movie_id")
+    db["Rating"].create_index("user_id")
+    print(f"Inserted {total} documents into Rating")
 
 
 def insert_productions(db, metadata, credits):
@@ -107,6 +148,7 @@ def main():
     connection = None
     try:
         metadata, credits = load_data()
+        links = load_links(set(metadata["id"]))
         dataframes = {"metadata": metadata, "credits": credits}
 
         connection = DbConnector()
@@ -115,8 +157,9 @@ def main():
         for name, source, column, id_key, fields in LOOKUPS:
             insert_lookup(db, name, dataframes[source][column], id_key, fields)
 
-        insert_movies(db, metadata)
+        insert_movies(db, metadata, links)
         insert_productions(db, metadata, credits)
+        insert_ratings(db, links)
 
     except Exception as e:
         print("ERROR:", e)
