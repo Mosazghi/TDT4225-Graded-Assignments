@@ -11,6 +11,14 @@ def parse(text):
         return []
 
 
+def parse_collection(text):
+    try:
+        result = ast.literal_eval(text)
+        return result if isinstance(result, dict) else None
+    except (ValueError, SyntaxError, TypeError):
+        return None
+
+
 def ids(text, key):
     return [item[key] for item in parse(text)]
 
@@ -78,6 +86,7 @@ def insert_movies(db, metadata, links):
         doc = {"_id": row["id"]}
         for column in columns:
             doc[column] = none_if_nan(row[column])
+        doc["belongs_to_collection"] = parse_collection(row["belongs_to_collection"])
         doc["imdb_id"] = none_if_nan(row["imdb_id"])
         movielens_id = movielens_by_tmdb.get(row["id"])
         doc["movielens_id"] = int(movielens_id) if movielens_id is not None else None

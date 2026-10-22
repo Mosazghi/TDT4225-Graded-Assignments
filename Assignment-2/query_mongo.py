@@ -31,29 +31,18 @@ def highest_median_earning_director(collection):
             "as": "director"
         }},
             {"$lookup": {
-            "from": "Rating",
-            "let": {"movieIds": "$movies.movie_id"},
-            "pipeline": [
-                {"$match": {
-                    "$expr": {
-                        "$in": ["$movie_id", "$$movieIds"]
-                    }
-                }},
-                {"$group": {
-                    "_id": None,
-                    "meanRating": {"$avg": "$rating"}
-                }}
-            ],
-            "as": "ratingStats"
-        }},
+                "from": "Movie",
+                "localField": "movies.movie_id",
+                "foreignField": "_id",
+                "as": "movieStats"
+            }},
     {"$unwind": "$director"},
-    {"$unwind": "$ratingStats"},
     {"$project": {
         "_id": 0,
         "director_name": "$director.name",
         "medianRevenue": 1,
         "movieCount": 1,
-        "meanRating": "$ratingStats.meanRating"
+        "meanRating": {"$avg": "$movieStats.vote_average"}
     }}
     ]
 
@@ -62,8 +51,46 @@ def highest_median_earning_director(collection):
 
 
 # Task 4
-def largest_total_revenue_film_collectiions():
-    pass
+def largest_total_revenue_film_collections(collection):
+    pipeline = [
+        {"$match": 
+         {"belongs_to_collection":
+                    {"$ne": None}}},
+        {"$group": {
+                "_id": "$belongs_to_collection.id",
+                "collectionName":  {"$first": "$belongs_to_collection.name"},
+                "collectionCount": {"$sum": 1},
+                "movieIds": {"$push": "$_id"},
+                "medianVoteAverage": {"$median": 
+                                      {"input": "$vote_average",
+                                       "method": "approximate"}},
+                "earliestReleaseDate": {"$min": "$release_date"},
+                "latestReleaseDate": {"$max": "$release_date"}
+        }},
+    {"$match": {"collectionCount": {"$gte": 3}}},
+    {"$lookup": {
+        "from": "Production",
+        "localField": "movieIds",
+        "foreignField": "movie_id",
+        "as": "productions"
+    }},
+    {"$set": {
+            "totalRevenue": {"$sum": "$productions.revenue"}
+        }},
+    {"$sort": {"totalRevenue": -1}},
+    {"$limit": 10},
+    {"$project":{
+            "collectionCount": 1,
+            "collectionName": 1,
+            "totalRevenue": 1,
+            "earliestReleaseDate": 1,
+            "latestReleaseDate": 1,
+            "medianVoteAverage": 1
+    }}
+    ]
+
+    for document in collection.aggregate(pipeline):
+        pprint(document)
 
 
 # Task 7
@@ -82,6 +109,7 @@ if __name__ == "__main__":
         connection = DbConnector()
         db = connection.db
         highest_median_earning_director(db["Production"])
+        largest_total_revenue_film_collections(db["Movie"])
     finally:
         if connection:
             connection.close_connection()
