@@ -94,13 +94,106 @@ def largest_total_revenue_film_collections(collection):
 
 
 # Task 7
-def noir_highest_vote_average():
-    pass
+def noir_highest_vote_average(collection):
+    pipeline = [
+        {"$match": {
+            "$text": {"$search": "noir"}
+        }},
+        {"$sort": {"vote_average": -1}},
+        {
+            "$set": {
+                "year": {"$substr": ["$release_date", 0, 4]}
+        }},
+        {"$match": {"vote_count": {"$gte": 50}}},
+        {"$limit": 20},
+        {"$project": {
+            "vote_average": 1,
+            "vote_count": 1,
+            "title": 1,
+            "year": 1
 
+    }}
+    ]
+
+    for document in collection.aggregate(pipeline):
+        pprint(document)
 
 # Task 10
-def user_ratings_info():
-    pass
+def user_ratings_info(collection):
+    pipeline = [
+        {"$group": {
+        "_id": "$user_id",
+        "movieIds": {"$addToSet": "$movie_id"},
+        "ratingCount": {"$sum": 1},
+        "ratingStandardDeviation": {
+            "$stdDevPop": "$rating"
+    }}},
+    {"$set": {
+        "ratingVariance": {
+        "$pow": ["$ratingStandardDeviation", 2]}}},
+        {"$lookup": {
+                "from": "Movie",
+                "localField": "movieIds",
+                "foreignField": "_id",
+                "as": "movies"}},
+        {"$set": {
+                "genres": {
+                    "$reduce": {
+                        "input": "$movies.genre_ids",
+                        "initialValue": [],
+                        "in": {"$setUnion": ["$$value", "$$this"]},
+                    }
+                }
+            }},
+    {"$set": {"genreCount": {"$size": "$genres"}}},
+    {"$sort": {"ratingVariance": -1}},
+    {"$match": {"ratingCount": {"$gte": 20}}},
+    {"$limit": 10},
+    {"$project": {
+            "ratingCount": 1,
+            "genreCount": 1,
+            "ratingVariance": 1}}
+    ]
+
+    for document in collection.aggregate(pipeline):
+        pprint(document)
+
+    pipeline = [
+        {"$group": {
+        "_id": "$user_id",
+        "movieIds": {"$addToSet": "$movie_id"},
+        "ratingCount": {"$sum": 1},
+        "ratingStandardDeviation": {
+            "$stdDevPop": "$rating"
+    }}},
+    {"$set": {
+        "ratingVariance": {
+        "$pow": ["$ratingStandardDeviation", 2]}}},
+        {"$lookup": {
+                "from": "Movie",
+                "localField": "movieIds",
+                "foreignField": "_id",
+                "as": "movies"}},
+        {"$set": {
+                "genres": {
+                    "$reduce": {
+                        "input": "$movies.genre_ids",
+                        "initialValue": [],
+                        "in": {"$setUnion": ["$$value", "$$this"]},
+                    }
+                }
+            }},
+    {"$set": {"genreCount": {"$size": "$genres"}}},
+    {"$sort": {"genreCount": -1}},
+    {"$limit": 10},
+    {"$project": {
+            "ratingCount": 1,
+            "genreCount": 1,
+            "ratingVariance": 1}}
+    ]
+
+    for document in collection.aggregate(pipeline):
+        pprint(document)
 
 
 if __name__ == "__main__":
@@ -110,6 +203,17 @@ if __name__ == "__main__":
         db = connection.db
         highest_median_earning_director(db["Production"])
         largest_total_revenue_film_collections(db["Movie"])
+
+        # Run index creation once for Task 7
+        db["Movie"].create_index([
+            ("overview", "text"),
+            ("tagline", "text")
+        ])
+
+        noir_highest_vote_average(db["Movie"])
+
+        user_ratings_info(db["Rating"])
+
     finally:
         if connection:
             connection.close_connection()
