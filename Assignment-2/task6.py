@@ -3,7 +3,7 @@ from pprint import pprint
 from DbConnector import DbConnector
 
 
-class Task3:
+class Task6:
 
     def __init__(self):
         self.connection = DbConnector()
@@ -118,7 +118,7 @@ class Task3:
 def main():
     program = None
     try:
-        program = Task3()
+        program = Task6()
         #program.movies_in_decades()
         program.fetch_documents()
         #program.count_movies_with_less_than_five_actors()
