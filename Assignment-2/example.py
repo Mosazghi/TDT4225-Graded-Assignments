@@ -91,6 +91,106 @@ class ExampleProgram:
 
         pprint(dict(itertools.islice(qualified_pairs.items(), 20)), sort_dicts=False)
         # pprint(qualified_pairs, sort_dicts=False)
+    def task_5(self):
+        # By decade (e.g., 1970s, 1980s, …) and primary genre (first element in genres),
+        # what is the median runtime and movie count?
+        # List results sorted by decade then median runtime (desc).
+        pipeline = [
+            {
+                "$project": {
+                    "decade": {
+                        "$toInt": {
+                            "$multiply": [
+                                {"$floor":
+                                    {"$divide":
+                                        [{"$year":
+                                            {"$dateFromString":
+                                                {"dateString":
+                                                    "$release_date"}}},
+                                        10]}},
+                                10
+                            ]
+                        },
+                    },
+                    "genre_id": {"$arrayElemAt": ["$genre_ids", 0]},
+                    "_id": 1,
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "Production",
+                    "localField": "_id",
+                    "foreignField": "movie_id",
+                    "as": "production",
+                }
+            },
+            {
+                "$unwind": "$production",
+            },
+            {
+                "$lookup": {
+                    "from": "Genres",
+                    "localField": "genre_id",
+                    "foreignField": "_id",
+                    "as": "genre",
+                }
+            },
+            {
+                "$unwind": "$genre",
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "decade": 1,
+                    "genre": "$genre.name",
+                    "runtime": "$production.runtime",
+                    "movie_id": "$production.movie_id",
+                },
+            },
+            {
+             "$match": {
+                 "decade": {"$ne": None },
+                 "genre": {"$nin": [None, ""]},
+                 "runtime": {"$type": "number", "$gt": 0}
+             }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "decade": "$decade",
+                        "genre": "$genre",
+                    },
+                    "median_runtime": {"$median":
+                        {
+                            "input": "$runtime",
+                            "method": "approximate",
+                        }},
+                    "count": {"$sum": 1},
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "decade": "$_id.decade",
+                    "genre": "$_id.genre",
+                    "median_runtime": 1,
+                    "count": 1,
+                },
+            },
+            {
+                "$sort": {
+                    "decade": 1,
+                    "median_runtime": -1,
+                },
+            }
+        ]
+        results = self.db["Movie"].aggregate(pipeline)
+        for result in results:
+            pprint(result)
+
+    def task_8(self):
+
+        pass
 
 
 
@@ -98,7 +198,7 @@ class ExampleProgram:
 def main():
     program = None
     program = ExampleProgram()
-    program.task_2()
+    program.task_5()
     program.connection.close_connection()
 
 
