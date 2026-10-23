@@ -90,11 +90,7 @@ class ExampleProgram:
         }
 
         pprint(dict(itertools.islice(qualified_pairs.items(), 20)), sort_dicts=False)
-        # pprint(qualified_pairs, sort_dicts=False)
     def task_5(self):
-        # By decade (e.g., 1970s, 1980s, …) and primary genre (first element in genres),
-        # what is the median runtime and movie count?
-        # List results sorted by decade then median runtime (desc).
         pipeline = [
             {
                 "$project": {
@@ -189,8 +185,59 @@ class ExampleProgram:
             pprint(result)
 
     def task_8(self):
+        movie_votes = {
+            movie["_id"]: (movie.get("vote_average"), movie.get("vote_count"))
+            for movie in self.db["Movie"].find({}, {"vote_average": 1, "vote_count": 1})
+        }
+        pairs = defaultdict(lambda: {"film_count": 0, "vote_sum": 0.0, "vote_count": 0, "revenue_sum": 0.0, "revenue_count": 0.0})
 
-        pass
+        production = self.db["Production"].find({}, {"cast.person_id": 1, "crew.person_id": 1, "crew.job": 1, "movie_id": 1, "revenue": 1})
+        for prod in production:
+            person_ids = sorted({c["person_id"] for c in (prod.get("cast") or [])})
+            director_ids = sorted({c["person_id"] for c in (prod.get("crew") or []) if c["job"] == "Director"})
+
+            vote_average, vote_count = movie_votes.get(prod["movie_id"], (None, None))
+
+            if (vote_count is None or vote_count < 100):
+                continue
+
+            for actor_id, director_id in list(itertools.product(person_ids, director_ids)):
+                if actor_id == director_id:
+                    continue
+                pair = (actor_id, director_id)
+                pairs[pair]["film_count"] += 1
+                if vote_average is not None:
+                    pairs[pair]["vote_sum"] += vote_average
+                    pairs[pair]["vote_count"] += 1
+                if prod.get("revenue") is not None:
+                    pairs[pair]["revenue_sum"] += prod["revenue"]
+                    pairs[pair]["revenue_count"] += 1
+
+
+        pairs = {
+            pair: {
+                "film_count": data["film_count"],
+                "vote_average": (
+                    data["vote_sum"] / data["vote_count"]
+                    if data["vote_count"] else None
+                ),
+                "mean_revenue": (
+                    data["revenue_sum"] / data["revenue_count"]
+                    if data["revenue_count"] else None
+                ),
+            }
+            for pair, data in  pairs.items() if data["film_count"] >= 3
+        }
+
+        # sort by vote average
+        top_20 = dict(
+            sorted(
+                pairs.items(),
+                key=lambda item: item[1]["vote_average"],
+                reverse=True,
+            )[:20]
+        )
+        pprint(top_20, sort_dicts=False)
 
 
 
@@ -198,7 +245,7 @@ class ExampleProgram:
 def main():
     program = None
     program = ExampleProgram()
-    program.task_5()
+    program.task_8()
     program.connection.close_connection()
 
 
